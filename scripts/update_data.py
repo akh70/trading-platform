@@ -166,6 +166,15 @@ def update_cot(today):
         added += 1
         print("COT: added", d)
         nxt = d + dt.timedelta(days=7)
+    # self-check: re-download the newest stored week and compare it with the stored numbers
+    chk = fetch_week(dates[-1])
+    if chk is None:
+        print("COT self-check: could not download", dates[-1], "(network or format problem)")
+        parse_ok = False
+    else:
+        bad = [k for k in ORDER if [cols[k][f][-1] for f in range(7)] != chk[1][k]]
+        parse_ok = chk[0] == dates[-1] and not bad
+        print("COT self-check:", "OK" if parse_ok else f"MISMATCH {chk[0]} {bad}")
     if added:
         cot_encode(j, dates, cols)
         json.dump(j, open(COT_F, "w"), separators=(",", ":"))
@@ -175,7 +184,7 @@ def update_cot(today):
     if today < expected + dt.timedelta(days=5):
         expected -= dt.timedelta(days=7)
     stale = dates[-1] < expected
-    return added, dates[-1], stale
+    return added, dates[-1], stale or not parse_ok
 
 
 def update_macro():
