@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>منصة التحليل 2.8</title>
+<title>منصة التحليل 2.9</title>
 <style>
 :root{
   --bg:#131722; --panel:#1e222d; --panel2:#2a2e39; --line:#2a2e39; --line2:#363a45;
@@ -169,7 +169,7 @@ button,select,input{font:inherit;color:var(--text)}
 <div id="tzMenu" style="position:absolute;top:70px;right:150px;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:6px;display:none;z-index:15;box-shadow:0 10px 30px rgba(0,0,0,.6);direction:rtl;min-width:240px;max-height:70vh;overflow:auto"></div>
 <div id="symSearch"><input id="symQ" placeholder="ابحث عن رمز… مثل EUR/USD أو BTC/USD"><div id="symList"></div></div>
 <div id="modal"><div class="box">
-  <h2>الإعدادات <span style="font-size:12px;color:#787b86">— الإصدار 2.8</span></h2>
+  <h2>الإعدادات <span style="font-size:12px;color:#787b86">— الإصدار 2.9</span></h2>
   <div class="row"><label>مفتاح Twelve Data</label><input id="sKey" type="password" style="width:220px;direction:ltr"></div>
   <div class="row"><label>الحجم المرجعي للشارت (عرض × ارتفاع)</label><input id="sW" type="number" style="width:80px"> × <input id="sH" type="number" style="width:80px"></div>
   <div class="row"><label>عرض الشارت بالحجم المرجعي حرفياً</label><input id="sLock" type="checkbox"></div>
@@ -1185,6 +1185,14 @@ const dISO=t=>new Date(t*1000).toISOString().slice(0,10);
 const sgnS=(v,d)=>{d=d==null?1:d;const r=+(+v).toFixed(d);return (r>=0?"+":"−")+Math.abs(r).toFixed(d);};
 const lastIdx=(T,av,now)=>{let j=T.length-1;if(now!=null)while(j>=0&&av(T[j])>now)j--;return j;};
 const ctxNow=()=>G.rep&&G.rep.t!=null?G.rep.now():null;
+/* freshness: compares the newest data with what should have been published by now (real clock, not replay) */
+function dataStale(){const now=Date.now()/1000,o={};
+  if(cot.t){const a=cotAvail(cot.t[cot.t.length-1]);o.cot=now-a>9*86400;o.cotLast=dISO(cot.t[cot.t.length-1]);}
+  if(mac.liq){o.liq=now-liqAvail(mac.liq.t[mac.liq.t.length-1])>9*86400;o.liqLast=dISO(mac.liq.t[mac.liq.t.length-1]);}
+  if(mac.y){o.yld=now-yAvail(mac.y.t[mac.y.t.length-1])>5*86400;o.yldLast=dISO(mac.y.t[mac.y.t.length-1]);}
+  return o;}
+function staleNote(keys){const s=dataStale(),nm={cot:"تقرير COT متأخر",liq:"بيانات السيولة متأخرة",yld:"بيانات العوائد متأخرة"},last={cot:s.cotLast,liq:s.liqLast,yld:s.yldLast};
+  const late=keys.filter(k=>s[k]);return late.length?'<div style="color:#f5c542">⚠ '+late.map(k=>nm[k]+' (آخرها '+last[k]+')').join('، ')+'. التحديث التلقائي يعيد المحاولة يومياً؛ أخبر Claude إن استمر التأخر.</div>':'';}
 const corrOf=(a,b)=>{const n=a.length;if(n<8)return NaN;const ma=a.reduce((p,q)=>p+q,0)/n,mb=b.reduce((p,q)=>p+q,0)/n;let s=0,sa=0,sb=0;for(let i=0;i<n;i++){s+=(a[i]-ma)*(b[i]-mb);sa+=(a[i]-ma)**2;sb+=(b[i]-mb)**2;}return s/Math.sqrt(sa*sb);};
 const corrWord=c=>!isFinite(c)?"غير كافٍ":Math.abs(c)>=.5?"قوي":Math.abs(c)>=.3?"متوسط":Math.abs(c)>=.15?"ضعيف":"لا يُذكر";
 
@@ -1279,7 +1287,7 @@ function cotPaint(x,W,H,info){
     '• اتجاه تمركز قوي غير مزدحم: '+f(pl.fuel_13)+'<br>• تمركز في أطراف مداه بقراءة عكسية: '+f(pl.crowd_13)+'<br>• انعكاس بعد تطرف: '+f(pl.rev_13)+'<br>'+
     'لا توجد حالة ذات دلالة إحصائية (تحتاج t أكبر من 2 تقريباً). الخلاصة: COT هنا يصف من يقف خلف الحركة ومدى ازدحامها، ولا يعطي إشارة دخول أو توقيتاً. للعملات، Asset Managers تتحرك مع السعر أكثر بكثير من Leveraged Funds، لذلك هي الفئة التلقائية.</span></details>'+
     '<span class="mut">آخر تقرير في البيانات: '+dISO(cot.t[cot.t.length-1])+' ('+(DATA.src.cot==="hosted"?"يتحدث أسبوعياً":"نسخة مضمّنة في الملف")+'). العملات مسعّرة مقابل الدولار؛ للين والفرنك والكندي يُعرض السعر مقلوباً حتى يكون الصعود صعوداً للعملة.</span>';
-  info.innerHTML=t;info.querySelectorAll("tr[data-k]").forEach(rw=>rw.onclick=()=>{cot.mk=rw.dataset.k;cot.follow=false;LS.set("cotMk",cot.mk);LS.set("cotFollow",false);csm.ctlKey="";csmPaint();});}
+  info.innerHTML=staleNote(["cot"])+t;info.querySelectorAll("tr[data-k]").forEach(rw=>rw.onclick=()=>{cot.mk=rw.dataset.k;cot.follow=false;LS.set("cotMk",cot.mk);LS.set("cotFollow",false);csm.ctlKey="";csmPaint();});}
 
 /* ---------- liquidity (Fed assets − TGA − reverse repo) and yields ---------- */
 const mac={liq:null,y:null,weeks:LS.get("macWeeks",104),days:LS.get("macDays",0)};
@@ -1320,7 +1328,7 @@ function liqPaint(x,W,H,info){if(!mac.liq){info.textContent="جارٍ تجهيز
   const jj=a+hk,ch=(arr,k)=>arr[jj]-arr[jj-k],F=v=>Math.round(v).toLocaleString("en-US");
   const c13={"أصول الفيدرالي":ch(L.wa,13),"حساب الخزانة":-ch(L.tg,13),"الريبو العكسي":-ch(L.rr,13)},drv=Object.entries(c13).sort((p,q)=>Math.abs(q[1])-Math.abs(p[1]))[0];
   const ref=LIQ_PX(sym),st=ref&&STATS.liq&&STATS.liq[ref];
-  info.innerHTML='<span class="mut">بيانات الأربعاء '+dISO(L.t[jj])+(hov?'':' (آخر قراءة)')+(now!=null?' · Replay':'')+'</span><br>صافي السيولة <b>$'+F(L.net[jj])+'B</b> — نبضة 13 أسبوعاً '+cl(ch(L.net,13),sgnS((L.net[jj]/L.net[jj-13]-1)*100,2)+'% ('+sgnS(ch(L.net,13),0)+'B)')+'، 4 أسابيع '+cl(ch(L.net,4),sgnS((L.net[jj]/L.net[jj-4]-1)*100,2)+'%')+
+  info.innerHTML=staleNote(["liq"])+'<span class="mut">بيانات الأربعاء '+dISO(L.t[jj])+(hov?'':' (آخر قراءة)')+(now!=null?' · Replay':'')+'</span><br>صافي السيولة <b>$'+F(L.net[jj])+'B</b> — نبضة 13 أسبوعاً '+cl(ch(L.net,13),sgnS((L.net[jj]/L.net[jj-13]-1)*100,2)+'% ('+sgnS(ch(L.net,13),0)+'B)')+'، 4 أسابيع '+cl(ch(L.net,4),sgnS((L.net[jj]/L.net[jj-4]-1)*100,2)+'%')+
     '<br>المحرّك الأكبر خلال 13 أسبوعاً: <b>'+drv[0]+'</b> ('+sgnS(drv[1],0)+'B). مساهمة الثلاثة: '+Object.entries(c13).map(([k2,v])=>k2+' '+cl(v,sgnS(v,0))).join('، ')+
     (live!=null&&isFinite(live)?'<br>ارتباط نبضة السيولة بـ '+sym+' خلال آخر سنة: <b>'+live.toFixed(2)+'</b> ('+corrWord(live)+')':'')+
     (st?'<br><span class="mut">في الاختبار ('+STATS.period+'): ارتباطها بـ '+ref+' في نفس الـ 13 أسبوعاً كان '+st["21-22"].toFixed(2)+' في 2021–22، و'+st["23-24"].toFixed(2)+' في 2023–24، و'+st["25-26"].toFixed(2)+' في 2025–26. العلاقة تتغير مع الزمن، فاقرأ الارتباط الحالي قبل الاعتماد عليها.</span>':'<br><span class="mut">لا توجد علاقة موثّقة في اختبارنا بين السيولة وهذا الرمز؛ أوضح أثر كان لناسداك والبيتكوين.</span>')+
@@ -1336,7 +1344,7 @@ function yPaint(x,W,H,info){if(!mac.y){info.textContent="جارٍ تجهيز ب�
   csmPlot(x,{x:0,y:h1,w:W,h:H-h1},n,[{v:Y.sp.slice(a,j+1),col:"#e6e9ef",w:1.5,fill:true}],{hk,hov,fmt:q=>Math.round(q)+"bp"});ctxLab(x,W,"2s10s curve (10Y − 2Y)","#e6e9ef",h1+12);
   const jj=a+hk,d=(arr,k)=>jj>=k?Math.round((arr[jj]-arr[jj-k])*100):null,bp=v=>v==null?"—":cl(v,sgnS(v,0)+"bp");
   const sym=G.active.sym(),ref=Y_PX(sym),st=ref&&STATS.yld&&STATS.yld[ref];
-  info.innerHTML='<span class="mut">'+dISO(Y.t[jj])+(hov?'':' (آخر قراءة)')+(now!=null?' · Replay':'')+'</span><br>عائد سنتين <b>'+Y.y2[jj].toFixed(2)+'%</b> (يوم '+bp(d(Y.y2,1))+'، 20 يوماً '+bp(d(Y.y2,20))+') — عائد 10 سنوات <b>'+Y.y10[jj].toFixed(2)+'%</b> (يوم '+bp(d(Y.y10,1))+'، 20 يوماً '+bp(d(Y.y10,20))+')<br>المنحنى 2s10s: <b>'+sgnS(Y.sp[jj],0)+'bp</b> (منذ بداية العرض '+bp(Y.sp[jj]-Y.sp[a])+')'+
+  info.innerHTML=staleNote(["yld"])+'<span class="mut">'+dISO(Y.t[jj])+(hov?'':' (آخر قراءة)')+(now!=null?' · Replay':'')+'</span><br>عائد سنتين <b>'+Y.y2[jj].toFixed(2)+'%</b> (يوم '+bp(d(Y.y2,1))+'، 20 يوماً '+bp(d(Y.y2,20))+') — عائد 10 سنوات <b>'+Y.y10[jj].toFixed(2)+'%</b> (يوم '+bp(d(Y.y10,1))+'، 20 يوماً '+bp(d(Y.y10,20))+')<br>المنحنى 2s10s: <b>'+sgnS(Y.sp[jj],0)+'bp</b> (منذ بداية العرض '+bp(Y.sp[jj]-Y.sp[a])+')'+
     (st?'<br><span class="mut">في الاختبار ('+STATS.period+'): تغير عائد السنتين خلال 20 يوماً يتحرك مع '+ref+' بارتباط '+st.all.toFixed(2)+' ('+corrWord(st.all)+')، و'+st["25-26"].toFixed(2)+' في 2025–26. ارتفاع العائد يرافق صعود الدولار. قدرته على التنبؤ بالأيام العشرين التالية '+st.next.toFixed(2)+' ('+corrWord(st.next)+').</span>':'')+
     '<br><span class="mut">عوائد الخزانة الأمريكية فقط، من FRED، آخر يوم: '+dISO(Y.t[Y.t.length-1])+'. عوائد ألمانيا وبريطانيا واليابان غير مضمّنة بعد.</span>';}
 
@@ -1372,7 +1380,7 @@ function ctxBuild(){const sym=G.active.sym(),p=sym.split("/"),now=ctxNow(),F=[];
 function ctxPaint(info){const html=$("#csmHtml");const C=ctxBuild();const ar=l=>l===1?'<b class="pos">▲</b>':l===-1?'<b class="neg">▼</b>':l===0?'<span class="mut">■</span>':'<span class="mut">—</span>';
   const ev={tested:'<span class="pos" title="علاقة مختبرة على بياناتنا">مختبر</span>',descriptive:'<span class="mut">وصفي</span>'};
   html.innerHTML='<table class="cmat mtf ctx"><tr><th>العامل</th><th></th><th>القراءة</th><th>الدليل</th></tr>'+C.factors.map(f=>'<tr><th>'+f.factor+'</th><td>'+ar(f.lean)+'</td><td>'+f.reading+(f.note?'<br><span class="mut">'+f.note+'</span>':'')+'</td><td>'+(ev[f.evidence]||"")+'</td></tr>').join("")+'</table>';
-  info.innerHTML='<b>'+C.symbol+'</b>: عوامل تميل للصعود '+'<b class="pos">'+C.leanUp+'</b>، للهبوط <b class="neg">'+C.leanDown+'</b>، محايدة '+C.neutral+(ctxNow()!=null?' · Replay':'')+
+  info.innerHTML=staleNote(["cot","liq","yld"])+'<b>'+C.symbol+'</b>: عوامل تميل للصعود '+'<b class="pos">'+C.leanUp+'</b>، للهبوط <b class="neg">'+C.leanDown+'</b>، محايدة '+C.neutral+(ctxNow()!=null?' · Replay':'')+
     '<br><span class="mut">▲▼ اتجاه ميل العامل لهذا الرمز، ■ محايد، — لا ينطبق أو غير محمّل. هذا سياق للفريمات الكبيرة وليس توصية؛ التوقيت يأتي من زواياك.</span>';}
 
 /* multi-timeframe agreement table: 1H, 4H, D ranks over the last 20 bars */
@@ -1567,7 +1575,7 @@ function renderJournal(){
   const clr=j.querySelector("#jClr");clr.onclick=()=>{if(clr.dataset.arm){JOURNAL=[];LS.set("journal",JOURNAL);renderJournal();updPL();}else{clr.dataset.arm=1;clr.textContent="اضغط مرة أخرى للتأكيد";}};
 }/* ===================== control API (for Claude) ===================== */
 const API={
-  version:"2.8", strength:()=>csmSnapshot(), strengthMatrix:()=>csmMatrix(), cot:(k)=>cotRead(k||cot.mk,ctxNow()), cotAll:()=>cotAll(), liquidity:()=>liqRead(ctxNow()), yields:()=>yRead(ctxNow()), context:()=>ctxBuild(), dataInfo:()=>({cot:DATA.src.cot,cotLast:cot.t&&dISO(cot.t[cot.t.length-1]),macro:DATA.src.mac,liqLast:mac.liq&&dISO(mac.liq.t[mac.liq.t.length-1]),yieldsLast:mac.y&&dISO(mac.y.t[mac.y.t.length-1])}), panel:(tab)=>{if(tab){csm.tab=tab;LS.set("csmTab",tab);csm.ctlKey="";}csmToggle(true);}, liveUpdate:()=>liveTick(), creditsToday:()=>creditsToday(),
+  version:"2.9", strength:()=>csmSnapshot(), strengthMatrix:()=>csmMatrix(), cot:(k)=>cotRead(k||cot.mk,ctxNow()), cotAll:()=>cotAll(), liquidity:()=>liqRead(ctxNow()), yields:()=>yRead(ctxNow()), context:()=>ctxBuild(), dataInfo:()=>({stale:dataStale(),cot:DATA.src.cot,cotLast:cot.t&&dISO(cot.t[cot.t.length-1]),macro:DATA.src.mac,liqLast:mac.liq&&dISO(mac.liq.t[mac.liq.t.length-1]),yieldsLast:mac.y&&dISO(mac.y.t[mac.y.t.length-1])}), panel:(tab)=>{if(tab){csm.tab=tab;LS.set("csmTab",tab);csm.ctlKey="";}csmToggle(true);}, liveUpdate:()=>liveTick(), creditsToday:()=>creditsToday(),
   charts:()=>G.charts.map((c,i)=>Object.assign({index:i,active:c===G.active},c.cfg())),
   chart:i=>G.charts[i]?G.charts[i].api:null,
   activate:i=>{if(G.charts[i])G.setActive(G.charts[i]);},
