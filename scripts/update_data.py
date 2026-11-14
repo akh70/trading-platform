@@ -219,6 +219,13 @@ def main():
     today = dt.datetime.utcnow().date()
     added, last, stale = update_cot(today)
     ok = update_macro()
+    try:
+        import rates
+        rates_ok = rates.main()
+    except Exception as e:
+        print("RATES: failed", e)
+        rates_ok = False
+    print("RATES ok =", rates_ok)
     print(f"COT: {added} week(s) added, newest {last}, stale={stale}; FRED ok={ok}")
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
