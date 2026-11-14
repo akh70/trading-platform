@@ -203,7 +203,8 @@ def snb_policy():
 
 def main():
     old = json.load(open(OUT)) if os.path.exists(OUT) else {"series": {}}
-    S = old.get("series", {})
+    before = json.dumps(old.get("series", {}), sort_keys=True)
+    S = json.loads(before)
     jobs = {
         ("US", "pol"): lambda: macro("DFEDTARU"), ("US", "y2"): lambda: macro("DGS2"),
         ("EU", "pol"): lambda: ecb("FM/D.U2.EUR.4F.KR.DFR.LEV"), ("EU", "y2"): lambda: ecb("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y"),
@@ -235,7 +236,7 @@ def main():
                    "UK": "Bank of England (Bank Rate; GLC nominal spot 2y)", "CA": "Bank of Canada Valet (target rate; 2y benchmark)",
                    "AU": "RBA (F1.1 cash rate target, monthly; F2 2y bond)", "JP": "FRED call rate, monthly; Ministry of Finance JGB 2y",
                    "CH": "SNB policy rate, monthly; no current 2y source", "NZ": "not available automatically"}}
-    if json.dumps(S, sort_keys=True) != json.dumps(old.get("series", {}), sort_keys=True):
+    if json.dumps(S, sort_keys=True) != before or not os.path.exists(OUT):
         json.dump(new, open(OUT, "w"), separators=(",", ":"))
     for k, v in report.items():
         print("RATES", k, v)
