@@ -226,6 +226,11 @@ def main():
         print("RATES: failed", e)
         rates_ok = False
     print("RATES ok =", rates_ok)
+    try:
+        import econ
+        econ.main()
+    except Exception as e:
+        print("ECON: failed", e)
     print(f"COT: {added} week(s) added, newest {last}, stale={stale}; FRED ok={ok}")
     out = os.environ.get("GITHUB_OUTPUT")
     if out:

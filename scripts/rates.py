@@ -209,7 +209,7 @@ def main():
         ("US", "pol"): lambda: macro("DFEDTARU"), ("US", "y2"): lambda: macro("DGS2"),
         ("EU", "pol"): lambda: ecb("FM/D.U2.EUR.4F.KR.DFR.LEV"), ("EU", "y2"): lambda: ecb("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y"),
         ("UK", "pol"): lambda: boe_iadb("IUDBEDR"), ("UK", "y2"): lambda: uk_2y(S.get("UK", {}).get("y2")),
-        ("AU", "pol"): lambda: rba("f1.1", "Cash Rate Target", "%d/%m/%Y"), ("AU", "y2"): lambda: rba("f2", "Australian Government 2 year bond", "%d-%b-%Y"),
+        ("AU", "pol"): lambda: rba("f1", "Cash Rate Target", "%d-%b-%Y"), ("AU", "y2"): lambda: rba("f2", "Australian Government 2 year bond", "%d-%b-%Y"),
         ("JP", "pol"): lambda: macro("IRSTCI01JPM156N"), ("JP", "y2"): mof_2y,
         ("CH", "pol"): snb_policy,
     }
@@ -234,7 +234,7 @@ def main():
     new = {"built": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z", "start": START, "series": S,
            "src": {"US": "FRED (DFEDTARU, DGS2)", "EU": "ECB (deposit facility rate; AAA euro-area 2y spot)",
                    "UK": "Bank of England (Bank Rate; GLC nominal spot 2y)", "CA": "Bank of Canada Valet (target rate; 2y benchmark)",
-                   "AU": "RBA (F1.1 cash rate target, monthly; F2 2y bond)", "JP": "FRED call rate, monthly; Ministry of Finance JGB 2y",
+                   "AU": "RBA (F1 cash rate target, daily; F2 2y bond)", "JP": "FRED call rate, monthly; Ministry of Finance JGB 2y",
                    "CH": "SNB policy rate, monthly; no current 2y source", "NZ": "not available automatically"}}
     if json.dumps(S, sort_keys=True) != before or not os.path.exists(OUT):
         json.dump(new, open(OUT, "w"), separators=(",", ":"))
