@@ -1,60 +1,38 @@
-"""One-off probe: which official series answer from a GitHub runner. Prints status, count, last obs."""
-import csv, io, json, re, sys, time, urllib.request
-UA={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0","Accept":"*/*"}
-def get(u,data=None,h=None,timeout=60):
-    rq=urllib.request.Request(u,data=data,headers={**UA,**(h or {})})
-    with urllib.request.urlopen(rq,timeout=timeout) as r: return r.read().decode("utf-8-sig","replace")
+import csv, io, json, re, time, urllib.request
+UA={"User-Agent":"Mozilla/5.0 (compatible; trading-platform-data/1.0; +https://github.com/akh70/trading-platform)"}
+def get(u,timeout=60):
+    with urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=timeout) as r: return r.read().decode("utf-8-sig","replace")
 def rep(tag,fn):
-    try:
-        r=fn(); print("OK ",tag,r,flush=True)
-    except Exception as e: print("ERR",tag,type(e).__name__,str(e)[:120],flush=True)
+    try: print("OK ",tag,fn(),flush=True)
+    except Exception as e: print("ERR",tag,type(e).__name__,str(e)[:150],flush=True)
 def fred(s):
-    t=get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={s}&cosd=2024-01-01",timeout=150).strip().splitlines()
-    v=[l for l in t[1:] if not l.endswith(",.")]; return len(v),v[-1]
-def ecb(k):
-    t=get(f"https://data-api.ecb.europa.eu/service/data/{k}?format=csvdata&startPeriod=2024-01&detail=dataonly")
-    r=list(csv.DictReader(io.StringIO(t))); return len(r),r[-1]["TIME_PERIOD"],r[-1]["OBS_VALUE"]
-def ons(c,ds):
-    j=json.loads(get(f"https://www.ons.gov.uk/economy/x/timeseries/{c.lower()}/{ds}/data"))
-    m=j.get("months") or j.get("quarters"); return j["description"]["title"][:70],len(m),m[-1]["date"],m[-1]["value"]
-def ecbdisc(k):
-    t=get(f"https://data-api.ecb.europa.eu/service/data/{k}?format=csvdata&lastNObservations=1&detail=dataonly")
-    r=list(csv.DictReader(io.StringIO(t))); return len(r),[(x["KEY"],x["TIME_PERIOD"],x["OBS_VALUE"]) for x in r][:60]
-rep("ECBDISC ICP U2 ANR",lambda:ecbdisc("ICP/M.U2.N..4.ANR"))
-rep("ECBDISC ICP U2 any",lambda:ecbdisc("ICP/M.U2..000000.."))
-rep("ECBDISC STS INWR",lambda:ecbdisc("STS/Q.I9..INWR...."))
-for k in ["ICP/M.U2.N.000000.4.ANR","ICP/M.U2.N.XEF000.4.ANR","ICP/M.U2.N.SERV00.4.ANR","ICP/M.U2.N.NRGY00.4.ANR",
-          "LFSI/M.I9.S.UNEHRT.TOTAL0.15_74.T","MNA/Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.GY","MNA/Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.GQ",
-          "STS/Q.I9.N.INWR.000000.3.ANR","IRS/M.IT.L.L40.CI.0000.EUR.N.Z","IRS/M.DE.L.L40.CI.0000.EUR.N.Z",
-          "BSI/M.U2.Y.V.M30.X.I.U2.2300.Z01.A","STS/M.I9.Y.PROD.NS0020.4.000","STS/M.DE.Y.PROD.NS0020.4.000","ICP/M.DE.N.000000.4.ANR"]:
-    rep("ECB "+k,lambda k=k:ecb(k))
-for c,ds in [("D7G7","mm23"),("DKO8","mm23"),("D7NN","mm23"),("L55O","mm23"),("MGSX","lms"),("KAI9","lms"),("KAJ4","lms"),("KAI7","lms"),("KAJ5","lms"),("KAC4","lms"),("ECY2","mgdp"),("IHYQ","pn2"),("J5EK","drsi"),("ABMZ","pn2")]:
-    rep("ONS "+c,lambda c=c,ds=ds:ons(c,ds))
-def boc_list():
-    j=json.loads(get("https://www.bankofcanada.ca/valet/lists/series/json"))["series"]
-    return [(k,v["label"][:50]) for k,v in j.items() if re.search(r"CPI|cpi",k+v["label"])][:40]
-rep("BOC list",boc_list)
-def statcan(v):
-    b=json.dumps([{"vectorId":v,"latestN":3}]).encode()
-    j=json.loads(get("https://www150.statcan.gc.ca/t1/wds/rest/getDataFromVectorsAndLatestNPeriods",data=b,h={"Content-Type":"application/json"}))
-    p=j[0]["object"]["vectorDataPoint"]; return [(x["refPer"],x["value"]) for x in p]
-for v in [2062815,41690973,41690914,65201210,1446859483,2062811]:
-    rep(f"STATCAN v{v}",lambda v=v:statcan(v))
-def rba_titles(t):
+    t=get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={s}&cosd=2025-06-01").strip().splitlines()
+    v=[l for l in t[1:] if not l.endswith(",.")]; return len(v),v[-2:]
+for s in "CPIAUCSL CPILFESL PCEPILFE PAYEMS UNRATE CES0500000003 ICSA RSAFS GDPC1 JTSJOL T5YIFR DCOILWTICO DFII10 T10YIE NFCI INDPRO".split():
+    rep("FRED "+s,lambda s=s:fred(s)); time.sleep(1)
+def esat(ds,q):
+    j=json.loads(get(f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/{ds}?{q}&sinceTimePeriod=2025-06"))
+    ix=j["dimension"]["time"]["category"]["index"]; inv={v:k for k,v in ix.items()}; vals=j["value"]
+    ks=sorted(int(k) for k in vals); return j.get("label","")[:60],[(inv.get(k%len(ix)),vals[str(k)]) for k in ks[-3:]],list(j["dimension"].keys())
+for ds,q in [("prc_hicp_manr","geo=EA&coicop=CP00"),("prc_hicp_manr","geo=EA&coicop=TOT_X_NRG_FOOD"),("prc_hicp_manr","geo=EA&coicop=SERV"),("prc_hicp_manr","geo=EA&coicop=NRG"),
+             ("prc_hicp_minr","geo=EA&coicop18=TOTAL"),("prc_hicp_manr","geo=EA20&coicop=CP00"),("prc_hicp_fl","geo=EA"),("une_rt_m","geo=EA20&s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT"),
+             ("sts_inpr_m","geo=DE&s_adj=SCA&nace_r2=B-D&unit=I21"),("namq_10_gdp","geo=EA20&unit=CLV_PCH_PRE&s_adj=SCA&na_item=B1GQ")]:
+    rep(f"ESTAT {ds} {q}",lambda ds=ds,q=q:esat(ds,q))
+def ons(path):
+    j=json.loads(get("https://www.ons.gov.uk/"+path+"/data")); m=j.get("months") or j.get("quarters")
+    return j["description"]["title"][:70],m[-1]["date"],m[-1]["value"]
+for p in ["economy/inflationandpriceindices/timeseries/d7g7/mm23","economy/inflationandpriceindices/timeseries/dko8/mm23","economy/inflationandpriceindices/timeseries/d7nn/mm23",
+          "employmentandlabourmarket/peoplenotinwork/unemployment/timeseries/mgsx/lms","employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kai9/lms",
+          "employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kaj4/lms","employmentandlabourmarket/peopleinwork/earningsandworkinghours/timeseries/kai7/lms",
+          "economy/grossdomesticproductgdp/timeseries/ihyq/pn2","economy/grossdomesticproductgdp/timeseries/ecy2/mgdp","businessindustryandtrade/retailindustry/timeseries/j5ek/drsi"]:
+    rep("ONS "+p.split("/")[-2],lambda p=p:ons(p))
+def rba(t):
     rows=list(csv.reader(io.StringIO(get(f"https://www.rba.gov.au/statistics/tables/csv/{t}-data.csv"))))
-    ti=next(r for r in rows if r and r[0]=="Title"); last=[r for r in rows if r and re.match(r"\d",r[0])][-1]
-    return [(a,b) for a,b in zip(ti[1:],last[1:]) if a][:30], last[0]
-for t in ["g1","g3","h5","i2","h3","d2"]:
-    rep("RBA "+t,lambda t=t:rba_titles(t))
-def snb(c):
-    t=get(f"https://data.snb.ch/api/cube/{c}/data/csv/en").splitlines()
-    return t[:3],len(t),t[-3:]
-for c in ["plkopr","plkoprinfla","amarbma","rendoblim","rendoblid","gdpap","conretail"]:
-    rep("SNB "+c,lambda c=c:snb(c))
-rep("BOJ api",lambda:get("https://www.stat-search.boj.or.jp/api/v1/getDataCode?format=json&lang=en&db=CO&code=TK99F1000601GCQ01000")[:300])
-rep("ESTAT stat.go.jp",lambda:get("https://www.stat.go.jp/english/data/cpi/1581-z.html")[:200])
-rep("RBNZ",lambda:get("https://www.rbnz.govt.nz/-/media/project/sites/rbnz/files/statistics/series/b/b2/hb2-daily.xlsx")[:50])
-rep("StatsNZ",lambda:get("https://www.stats.govt.nz/indicators/consumers-price-index-cpi/")[:100])
-
-for s in "CPIAUCSL CPILFESL PCEPILFE PAYEMS UNRATE CES0500000003 ICSA RSAFS INDPRO GDPC1 JTSJOL T5YIFR DCOILWTICO DFII10 T10YIE NFCI DTWEXBGS".split():
-    rep("FRED "+s,lambda s=s:fred(s)); time.sleep(2)
+    return [r[:4] for r in rows[:12]],[r[:4] for r in rows if r and re.match(r"\d\d/",r[0])][-2:]
+for t in ["g1","h5","i2"]: rep("RBA "+t,lambda t=t:rba(t))
+rep("BOJ",lambda:get("https://www.stat-search.boj.or.jp/api/v1/getDataCode?format=json&lang=en&db=CO&code=TK99F1000601GCQ01000")[:700])
+def snbh(c): 
+    t=get(f"https://data.snb.ch/api/cube/{c}/data/csv/en").splitlines(); last=t[-1].split(";")[0]; return [l for l in t if l.startswith(last)][:20]
+for c in ["amarbma","plkoprinfla","gdpap"]: rep("SNB "+c,lambda c=c:snbh(c))
+rep("SNB dims amarbma",lambda:get("https://data.snb.ch/api/cube/amarbma/dimensions/en")[:900])
+rep("SNB dims plkoprinfla",lambda:get("https://data.snb.ch/api/cube/plkoprinfla/dimensions/en")[:900])
