@@ -9,7 +9,7 @@ def rep(tag,fn):
         r=fn(); print("OK ",tag,r,flush=True)
     except Exception as e: print("ERR",tag,type(e).__name__,str(e)[:120],flush=True)
 def fred(s):
-    t=get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={s}&cosd=2024-01-01").strip().splitlines()
+    t=get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={s}&cosd=2024-01-01",timeout=150).strip().splitlines()
     v=[l for l in t[1:] if not l.endswith(",.")]; return len(v),v[-1]
 def ecb(k):
     t=get(f"https://data-api.ecb.europa.eu/service/data/{k}?format=csvdata&startPeriod=2024-01&detail=dataonly")
@@ -17,8 +17,12 @@ def ecb(k):
 def ons(c,ds):
     j=json.loads(get(f"https://www.ons.gov.uk/economy/x/timeseries/{c.lower()}/{ds}/data"))
     m=j.get("months") or j.get("quarters"); return j["description"]["title"][:70],len(m),m[-1]["date"],m[-1]["value"]
-for s in "CPIAUCSL CPILFESL PCEPILFE PAYEMS UNRATE CES0500000003 ICSA RSAFS INDPRO GDPC1 JTSJOL T5YIFR HOUST DCOILWTICO DFII10 T10YIE NFCI DTWEXBGS".split():
-    rep("FRED "+s,lambda s=s:fred(s)); time.sleep(1)
+def ecbdisc(k):
+    t=get(f"https://data-api.ecb.europa.eu/service/data/{k}?format=csvdata&lastNObservations=1&detail=dataonly")
+    r=list(csv.DictReader(io.StringIO(t))); return len(r),[(x["KEY"],x["TIME_PERIOD"],x["OBS_VALUE"]) for x in r][:60]
+rep("ECBDISC ICP U2 ANR",lambda:ecbdisc("ICP/M.U2.N..4.ANR"))
+rep("ECBDISC ICP U2 any",lambda:ecbdisc("ICP/M.U2..000000.."))
+rep("ECBDISC STS INWR",lambda:ecbdisc("STS/Q.I9..INWR...."))
 for k in ["ICP/M.U2.N.000000.4.ANR","ICP/M.U2.N.XEF000.4.ANR","ICP/M.U2.N.SERV00.4.ANR","ICP/M.U2.N.NRGY00.4.ANR",
           "LFSI/M.I9.S.UNEHRT.TOTAL0.15_74.T","MNA/Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.GY","MNA/Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.GQ",
           "STS/Q.I9.N.INWR.000000.3.ANR","IRS/M.IT.L.L40.CI.0000.EUR.N.Z","IRS/M.DE.L.L40.CI.0000.EUR.N.Z",
@@ -51,3 +55,6 @@ rep("BOJ api",lambda:get("https://www.stat-search.boj.or.jp/api/v1/getDataCode?f
 rep("ESTAT stat.go.jp",lambda:get("https://www.stat.go.jp/english/data/cpi/1581-z.html")[:200])
 rep("RBNZ",lambda:get("https://www.rbnz.govt.nz/-/media/project/sites/rbnz/files/statistics/series/b/b2/hb2-daily.xlsx")[:50])
 rep("StatsNZ",lambda:get("https://www.stats.govt.nz/indicators/consumers-price-index-cpi/")[:100])
+
+for s in "CPIAUCSL CPILFESL PCEPILFE PAYEMS UNRATE CES0500000003 ICSA RSAFS INDPRO GDPC1 JTSJOL T5YIFR DCOILWTICO DFII10 T10YIE NFCI DTWEXBGS".split():
+    rep("FRED "+s,lambda s=s:fred(s)); time.sleep(2)
