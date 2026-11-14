@@ -179,9 +179,9 @@ def update_cot(today):
         cot_encode(j, dates, cols)
         json.dump(j, open(COT_F, "w"), separators=(",", ":"))
     # stale when the newest Tuesday that should be public (published Friday) is more than one week behind
-    # the most recent Tuesday whose report (published Friday) has had until Sunday to be picked up
+    # the most recent Tuesday whose report (normally Friday, Monday in holiday weeks) has had until Tuesday to be picked up
     expected = today - dt.timedelta(days=(today.weekday() - 1) % 7)
-    if today < expected + dt.timedelta(days=5):
+    if today < expected + dt.timedelta(days=7):  # allow holiday weeks, when CFTC publishes on Monday
         expected -= dt.timedelta(days=7)
     stale = dates[-1] < expected
     return added, dates[-1], stale or not parse_ok

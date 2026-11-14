@@ -3,7 +3,7 @@
 Writes data/rates-data.json: {"built": ..., "series": {ECON: {"pol": [[date, value], ...], "y2": [...]}}, "src": {...}}
 A source that fails keeps its previous data; the summary reports what changed.
 """
-import csv, io, json, os, re, zipfile, datetime as dt, urllib.request, xml.etree.ElementTree as ET
+import csv, io, json, os, re, time, traceback, zipfile, datetime as dt, urllib.request, xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "rates-data.json")
@@ -13,9 +13,15 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
 
-def get(url, timeout=120):
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-        return r.read()
+def get(url, timeout=90, tries=4):
+    for i in range(tries):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
+                return r.read()
+        except Exception as e:
+            err = e
+            time.sleep(10 * (i + 1))
+    raise err
 
 
 def text(url):
@@ -140,11 +146,11 @@ def boc():
     return keep(pol), keep(y2)
 
 
-def rba(table, series_id, fmt):
+def rba(table, title, fmt):
     t = text(f"https://www.rba.gov.au/statistics/tables/csv/{table}-data.csv")
     rows = list(csv.reader(io.StringIO(t)))
-    ids = next(r for r in rows if r and r[0] == "Series ID")
-    i = ids.index(series_id)
+    titles = next(r for r in rows if r and r[0] == "Title")
+    i = [x.strip() for x in titles].index(title)
     out = []
     for r in rows:
         if len(r) > i:
@@ -186,7 +192,7 @@ def main():
         ("US", "pol"): lambda: fred("DFEDTARU"), ("US", "y2"): lambda: fred("DGS2"),
         ("EU", "pol"): lambda: ecb("FM/D.U2.EUR.4F.KR.DFR.LEV"), ("EU", "y2"): lambda: ecb("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y"),
         ("UK", "pol"): lambda: boe_iadb("IUDBEDR"), ("UK", "y2"): lambda: uk_2y(S.get("UK", {}).get("y2")),
-        ("AU", "pol"): lambda: rba("f1.1", "FIRMMCRTD", "%d/%m/%Y"), ("AU", "y2"): lambda: rba("f2", "FCMYGBAG2D", "%d-%b-%Y"),
+        ("AU", "pol"): lambda: rba("f1.1", "Cash Rate Target", "%d/%m/%Y"), ("AU", "y2"): lambda: rba("f2", "Australian Government 2 year bond", "%d-%b-%Y"),
         ("JP", "pol"): lambda: fred("IRSTCI01JPM156N"), ("JP", "y2"): mof_2y,
         ("CH", "pol"): snb_policy,
     }
@@ -205,7 +211,9 @@ def main():
             S.setdefault(e, {})[k] = rows
             report[f"{e}.{k}"] = rows[-1]
         except Exception as ex:
-            report[f"{e}.{k}"] = f"FAILED: {ex}"
+            report[f"{e}.{k}"] = f"FAILED: {ex!r}"
+            traceback.print_exc()
+        time.sleep(2)
     new = {"built": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z", "start": START, "series": S,
            "src": {"US": "FRED (DFEDTARU, DGS2)", "EU": "ECB (deposit facility rate; AAA euro-area 2y spot)",
                    "UK": "Bank of England (Bank Rate; GLC nominal spot 2y)", "CA": "Bank of Canada Valet (target rate; 2y benchmark)",
