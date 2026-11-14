@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>منصة التحليل 3.0</title>
+<title>منصة التحليل 3.1</title>
 <style>
 :root{
   --bg:#131722; --panel:#1e222d; --panel2:#2a2e39; --line:#2a2e39; --line2:#363a45;
@@ -170,7 +170,7 @@ button,select,input{font:inherit;color:var(--text)}
 <div id="tzMenu" style="position:absolute;top:70px;right:150px;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:6px;display:none;z-index:15;box-shadow:0 10px 30px rgba(0,0,0,.6);direction:rtl;min-width:240px;max-height:70vh;overflow:auto"></div>
 <div id="symSearch"><input id="symQ" placeholder="ابحث عن رمز… مثل EUR/USD أو BTC/USD"><div id="symList"></div></div>
 <div id="modal"><div class="box">
-  <h2>الإعدادات <span style="font-size:12px;color:#787b86">— الإصدار 3.0</span></h2>
+  <h2>الإعدادات <span style="font-size:12px;color:#787b86">— الإصدار 3.1</span></h2>
   <div class="row"><label>مفتاح Twelve Data</label><input id="sKey" type="password" style="width:220px;direction:ltr"></div>
   <div class="row"><label>الحجم المرجعي للشارت (عرض × ارتفاع)</label><input id="sW" type="number" style="width:80px"> × <input id="sH" type="number" style="width:80px"></div>
   <div class="row"><label>عرض الشارت بالحجم المرجعي حرفياً</label><input id="sLock" type="checkbox"></div>
@@ -1027,7 +1027,7 @@ const CSM_CUR=["USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD"];
 const CSM_COL={USD:"#4f8cff",EUR:"#ffd23f",GBP:"#ff5ca8",JPY:"#ff3b3b",CHF:"#c084fc",CAD:"#ff9f1c",AUD:"#2ee59d",NZD:"#00d1ff"};
 const CSM_PAIRS=["EUR/USD","GBP/USD","AUD/USD","NZD/USD","USD/JPY","USD/CHF","USD/CAD"];
 const CSM_ORD=["EUR","GBP","AUD","NZD","USD","CAD","CHF","JPY"];
-const CSM_TABS=[["ctx","السياق"],["str","القوة"],["mat","المصفوفة"],["spr","السبريد"],["risk","المخاطرة"],["mtf","الفريمات"],["rts","الفائدة"],["cot","COT"],["liq","السيولة"],["yld","العوائد"]];
+const CSM_TABS=[["ctx","السياق"],["str","القوة"],["mat","المصفوفة"],["spr","السبريد"],["risk","المخاطرة"],["mtf","الفريمات"],["rts","الفائدة"],["eco","الاقتصاد"],["cot","COT"],["liq","السيولة"],["yld","العوائد"]];
 const csm={open:!!LS.get("csm",false),tab:LS.get("csmTab","str"),mode:LS.get("csmMode","cum"),per:LS.get("csmPer",10),pins:new Set(LS.get("csmPins",[])),
   follow:LS.get("csmFollow",true),spA:LS.get("csmSpA","EUR"),spB:LS.get("csmSpB","USD"),w:LS.get("csmW",420),
   tf:null,times:[],rows:[],pb:null,mom:null,gold:null,goldErr:"",loading:false,err:"",raf:0,at:0,mtfBusy:false,hit:null};
@@ -1100,6 +1100,7 @@ function csmCtl(){
   else if(csm.tab==="cot")h+=cotCtl();
   else if(csm.tab==="liq"||csm.tab==="yld")h+=macCtl();
   else if(csm.tab==="rts")h+=rtsCtl();
+  else if(csm.tab==="eco")h+=ecoCtl();
   else if(csm.tab==="mtf")h+='<button class="btn" id="csmMtfBtn">تحميل الفريمات الثلاثة (1H · 4H · D)</button>';
   c.innerHTML=h;c.style.display=h?"flex":"none";
   const q=s=>c.querySelector(s);
@@ -1112,6 +1113,7 @@ function csmCtl(){
   if(csm.tab==="cot")cotWire(c);
   if(csm.tab==="liq"||csm.tab==="yld")macWire(c);
   if(csm.tab==="rts")rtsWire(c);
+  if(csm.tab==="eco")ecoWire(c);
   csm.ctlKey=csm.tab+"|"+csm.mode+"|"+act.join();}
 function csmSaveSp(){LS.set("csmSpA",csm.spA);LS.set("csmSpB",csm.spB);LS.set("csmFollow",csm.follow);}
 function csmPaint(){
@@ -1120,12 +1122,13 @@ function csmPaint(){
   if(csm.follow&&fx&&(csm.spA!==act[0]||csm.spB!==act[1])){csm.spA=act[0];csm.spB=act[1];csm.ctlKey="";}
   if(csm.ctlKey!==csm.tab+"|"+csm.mode+"|"+act.join())csmCtl();
   const tf=G.active.tf();if(tf!==csm.tf&&!csm.loading&&!csm.err)csmLoad();
-  const isHtml=csm.tab==="mat"||csm.tab==="mtf"||csm.tab==="ctx";$("#csmInfo").classList.toggle("big",csm.tab==="cot"||csm.tab==="liq"||csm.tab==="rts");cv.style.display=isHtml?"none":"block";html.style.display=isHtml?"block":"none";
+  const isHtml=csm.tab==="mat"||csm.tab==="mtf"||csm.tab==="ctx"||csm.tab==="eco";$("#csmInfo").classList.toggle("big",csm.tab==="cot"||csm.tab==="liq"||csm.tab==="rts");cv.style.display=isHtml?"none":"block";html.style.display=isHtml?"block":"none";
   const W=body.clientWidth,H=body.clientHeight,dpr=window.devicePixelRatio||1;let x=null;
   if(!isHtml&&W&&H){if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cv.style.width=W+"px";cv.style.height=H+"px";}
     x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);}
   csm.hit=null;if(!isHtml&&!x)return;
   if(csm.tab==="ctx"){ctxPaint(info);return;}
+  if(csm.tab==="eco"){ecoPaint(info);return;}
   if(csm.tab==="cot"){cotPaint(x,W,H,info);return;}
   if(csm.tab==="liq"){liqPaint(x,W,H,info);return;}
   if(csm.tab==="yld"){yPaint(x,W,H,info);return;}
@@ -1185,7 +1188,9 @@ async function dataLoad(){
     DATA[k]=j;}
   if(location.protocol.startsWith("http")){try{const r=await fetch("data/rates-data.json",{cache:"no-store"});if(r.ok){DATA.rates=await r.json();DATA.src.rates="hosted";}}catch(e){}}
   if(!DATA.rates)DATA.src.rates="none";
-  try{cotPrep();}catch(e){console.error(e);}try{macPrep();}catch(e){console.error(e);}try{rtsPrep();}catch(e){console.error(e);}
+  if(location.protocol.startsWith("http")){try{const r=await fetch("data/econ-data.json",{cache:"no-store"});if(r.ok){DATA.econ=await r.json();DATA.src.econ="hosted";}}catch(e){}}
+  if(!DATA.econ)DATA.src.econ="none";
+  try{cotPrep();}catch(e){console.error(e);}try{macPrep();}catch(e){console.error(e);}try{rtsPrep();}catch(e){console.error(e);}try{ecoPrep();}catch(e){console.error(e);}
   csm.ctlKey="";if(G.csmDraw)G.csmDraw();}
 const dISO=t=>new Date(t*1000).toISOString().slice(0,10);
 const sgnS=(v,d)=>{d=d==null?1:d;const r=+(+v).toFixed(d);return (r>=0?"+":"−")+Math.abs(r).toFixed(d);};
@@ -1399,6 +1404,86 @@ function rtsPaint(x,W,H,info){
   info.innerHTML=staleNote(["rts"])+'<span class="mut">'+sym+' · '+dISO(B.t[jj])+(hov?'':' (آخر قراءة)')+(now!=null?' · Replay':'')+'</span><br>فرق عائد السنتين '+P.base+' − '+P.quote+': <b>'+sgnS(sv,0)+'bp</b>'+(dsp!=null?' (20 يوماً '+cl(dsp,sgnS(dsp,0)+'bp')+(Math.abs(dsp)>=10?(dsp>0?' → يميل لصالح '+sym.split("/")[0]:' → يميل لصالح '+sym.split("/")[1]):' → تغير صغير')+')':'')+
     (live!=null&&isFinite(live)?'<br>ارتباط تغير الفرق بتغير '+sym+' خلال آخر سنة: <b>'+live.toFixed(2)+'</b> ('+corrWord(live)+')':'')+
     (st?'<br><span class="mut">في الاختبار (2021–2026): يتحرك مع الزوج في نفس الـ 20 يوماً بارتباط '+st.all.toFixed(2)+' ('+corrWord(st.all)+')، و'+st["25-26"].toFixed(2)+' في 2025–26. قدرته على التنبؤ بالأيام العشرين التالية '+st.next.toFixed(2)+' ('+corrWord(st.next)+'). أي أنه يؤكد اتجاه الحركة الحالية ولا يتنبأ بما بعدها.</span>':'')+tbl+note;}
+
+/* ---------- economy: drivers per currency, each economy with its own drivers and weights (hosted data only) ---------- */
+const ECO_W={H:3,M:2,L:1},ECO_WN={H:"عالٍ",M:"متوسط",L:"منخفض"};
+/* item: [series id, label, weight, dir (+1 rise supports the currency via a more hawkish bank/stronger terms of trade, −1 the opposite, 0 two-sided), target, release lag in days after period end] */
+const ECO_DRV={
+ US:{cur:"USD",about:"اقتصاد خدمي استهلاكي. الفيدرالي يتابع التضخم الأساسي وسوق العمل أولاً، لذلك أقوى محركات الدولار: التضخم الأساسي الشهري، والوظائف والبطالة، ومؤشر الأسعار في مسح ISM للخدمات. النفط يؤثر عبر التضخم، والعائد الحقيقي يجذب رؤوس الأموال.",
+  g:[["التضخم",[["US_CORE_MM","التضخم الأساسي الشهري CPI","H",1,0.17,13],["US_CORE_YY","التضخم الأساسي السنوي CPI","H",1,2,13],["US_PCEC_YY","التضخم الأساسي PCE (مقياس الفيدرالي)","H",1,2,28],["US_CPI_YY","التضخم الكلي CPI","M",1,2,13],["US_5Y5Y","توقعات التضخم بعيدة المدى (5y5y)","M",1,null,1]]],
+     ["سوق العمل",[["US_NFP","الوظائف غير الزراعية (ألف)","H",1,null,6],["US_UR","البطالة","H",-1,null,6],["US_AHE_YY","نمو الأجور بالساعة","M",1,null,6],["US_CLAIMS","طلبات إعانة البطالة (متوسط 4 أسابيع، ألف)","M",-1,null,5],["US_JOLTS","فرص العمل الشاغرة (مليون)","L",1,null,37]]],
+     ["النمو والطلب",[["US_RETAIL_MM","مبيعات التجزئة الشهرية","M",1,null,15],["US_GDP_QA","الناتج المحلي (سنوي مُعدَّل)","M",1,null,28],["US_IP_YY","الإنتاج الصناعي","L",1,null,16]]],
+     ["الأسواق والأوضاع المالية",[["US_REAL10","العائد الحقيقي 10 سنوات","H",1,null,1],["US_BE10","التضخم المتوقع 10 سنوات","L",0,null,1],["US_NFCI","مؤشر الأوضاع المالية (موجب = مشدودة)","L",0,null,5],["WTI","النفط WTI ($)","M",0,null,1]]]],
+  offline:"ISM الخدمات والصناعي ومؤشرات الأسعار فيهما، UMich وتوقعات التضخم، احتمالات FedWatch، Beige Book"},
+ EU:{cur:"EUR",about:"اقتصاد صناعي مستورد للطاقة تقوده ألمانيا. المركزي الأوروبي يتابع التضخم الأساسي والخدمات والأجور المتفاوض عليها. ارتفاع الطاقة يرفع التضخم لكنه يضر النمو والميزان التجاري، فهو سلاح ذو حدين لليورو. اتساع فرق عوائد إيطاليا وألمانيا يعني خطر تفكك ويضغط على اليورو.",
+  g:[["التضخم",[["EU_CORE_YY","التضخم الأساسي HICP","H",1,2,17],["EU_SERV_YY","تضخم الخدمات","H",1,null,17],["EU_HICP_YY","التضخم الكلي HICP","M",1,2,17],["EU_NRG_YY","تضخم الطاقة","M",0,null,17]]],
+     ["الأجور وسوق العمل",[["EU_WAGES_YY","الأجور المتفاوض عليها","H",1,null,60],["EU_UR","البطالة","M",-1,null,30]]],
+     ["النمو",[["EU_GDP_QQ","الناتج المحلي (فصلي)","M",1,null,30],["EU_DE_IP_YY","الإنتاج الصناعي الألماني","M",1,null,38]]],
+     ["المخاطر المالية",[["EU_IT_DE","فرق عائد إيطاليا − ألمانيا 10 سنوات (bp)","M",-1,null,3],["EU_M3_YY","نمو المعروض النقدي M3","L",0,null,28]]]],
+  offline:"PMI منطقة اليورو وألمانيا وفرنسا، Ifo وZEW، أسعار الغاز، توقعات المركزي الأوروبي وتسعير السوق، تصريحات الأعضاء"},
+ UK:{cur:"GBP",about:"اقتصاد خدمي تضخم الخدمات والأجور فيه لزجان. بنك إنجلترا يركز على تضخم الخدمات ونمو الأجور في القطاع الخاص وسوق العمل، والانقسام في تصويت اللجنة يحرك الإسترليني.",
+  g:[["التضخم",[["UK_SERV_YY","تضخم الخدمات","H",1,null,17],["UK_CPI_YY","التضخم الكلي CPI","H",1,2,17],["UK_CORE_YY","التضخم الأساسي","M",1,null,17]]],
+     ["الأجور وسوق العمل",[["UK_PRIVPAY_YY","أجور القطاع الخاص المنتظمة (3 أشهر)","H",1,null,45],["UK_PAY_YY","الأجور المنتظمة الكلية (3 أشهر)","M",1,null,45],["UK_UR","البطالة","H",-1,null,45]]],
+     ["النمو",[["UK_GDP_MM","الناتج الشهري","M",1,null,42],["UK_GDP_QQ","الناتج الفصلي","M",1,null,42],["UK_RETAIL_YY","مبيعات التجزئة السنوية","L",1,null,22]]]],
+  offline:"PMI بريطانيا، مسح DMP لتوقعات الأسعار والأجور، تسعير OIS، تصويت لجنة السياسة النقدية"},
+ JP:{cur:"JPY",about:"الين يتحرك بفارق الفائدة مع أمريكا وتوقعات رفع بنك اليابان. أهم المحركات: الأجور (Shunto) والتضخم الأساسي ومسح Tankan وعوائد السندات اليابانية، وخطر تدخل وزارة المالية عند ضعف الين الشديد. الين يرتفع أيضاً في موجات الهروب من المخاطرة.",
+  g:[["الثقة والنشاط",[["JP_TANKAN_LM","Tankan كبار المصنّعين","H",1,null,1],["JP_TANKAN_LN","Tankan كبار غير المصنّعين","M",1,null,1]]],
+     ["الأسواق",[["JP_10Y","عائد السندات اليابانية 10 سنوات","H",1,null,1]]]],
+  offline:"التضخم الوطني وطوكيو (يحتاج مفتاح e-Stat للجلب التلقائي)، الأجور وShunto، تصريحات وزارة المالية عن التدخل، تسعير OIS لاجتماع بنك اليابان"},
+ CH:{cur:"CHF",about:"الفرنك ملاذ آمن. التضخم ضمن هدف 0–2% يبقي الفائدة عند الصفر، والسلاح الأساسي للبنك السويسري هو التدخل في سوق العملات. الفرنك يتأثر بالمخاطر العالمية واليورو أكثر من بياناته المحلية.",
+  g:[["التضخم",[["CH_CPI_YY","التضخم الكلي","H",1,1,5],["CH_CORE_YY","التضخم الأساسي (المتوسط المشذّب)","M",1,1,5]]],
+     ["سوق العمل",[["CH_UR","البطالة","L",-1,null,8]]]],
+  offline:"بيانات التدخل في العملة وودائع البنوك لدى البنك السويسري، تسعير السوق لاجتماع البنك، عائد السنتين"},
+ CA:{cur:"CAD",about:"اقتصاد مصدّر للنفط ومرتبط بأمريكا (نحو ثلاثة أرباع صادراته). الكندي يتحرك بالنفط مع خصم نفط WCS، وبفارق الفائدة مع أمريكا، وبالرسوم الجمركية. بنك كندا يتابع التضخم الأساسي (trim وmedian) وسوق العمل.",
+  g:[["التضخم",[["CA_TRIM","التضخم الأساسي CPI-trim","H",1,2,20],["CA_MEDIAN","التضخم الأساسي CPI-median","H",1,2,20],["CA_CPI_YY","التضخم الكلي","M",1,2,20]]],
+     ["سوق العمل",[["CA_UR","البطالة","H",-1,null,8],["CA_EMP","التوظيف الشهري (ألف)","M",1,null,8]]],
+     ["النمو والسلع",[["CA_GDP_MM","الناتج الشهري","M",1,null,60],["CA_BCPI_ENER","مؤشر أسعار الطاقة لبنك كندا","M",1,null,5],["WTI","النفط WTI ($)","H",1,null,1]]]],
+  offline:"خصم نفط WCS، PMI إيفي، مسح BOS لبنك كندا، الرسوم الجمركية الأمريكية، تسعير السوق لاجتماع البنك"},
+ AU:{cur:"AUD",about:"اقتصاد مصدّر للحديد والفحم والغاز، والصين أكبر زبائنه. الأسترالي يتحرك بأسعار السلع والمخاطرة العالمية والصين، والاحتياطي الأسترالي يتابع التضخم المشذّب وسوق العمل. فائدته الأعلى بين العملات الرئيسية.",
+  g:[["التضخم",[["AU_TRIM_YY","التضخم المشذّب (فصلي)","H",1,2.5,28],["AU_CPI_YY","التضخم الكلي (فصلي)","M",1,2.5,28]]],
+     ["سوق العمل",[["AU_UR","البطالة","H",-1,null,16],["AU_EMP_YY","نمو التوظيف السنوي","M",1,null,16]]],
+     ["السلع",[["AU_BULK_YY","أسعار السلع السائبة (حديد وفحم وغاز) سنوي","H",1,null,3],["AU_COMM_YY","مؤشر أسعار السلع سنوي","M",1,null,3]]]],
+  offline:"التضخم الشهري، سعر الحديد الفوري، بيانات الصين، مسوح NAB وWestpac، متتبع ASX لتوقعات الفائدة"},
+ NZ:{cur:"NZD",about:"اقتصاد زراعي، الألبان أكبر صادراته. النيوزيلندي يتحرك بأسعار الألبان (GDT) والمخاطرة العالمية والصين وتوقعات بنك نيوزيلندا. البيانات الرسمية لا تُجلب تلقائياً بعد (البنك المركزي يرفض الاتصال الآلي).",
+  g:[],offline:"التضخم والبطالة الفصليان، مزادات الألبان GDT، فائدة OCR وتسعير السوق، الهجرة والعقار"}};
+const eco={d:null,sel:LS.get("ecoSel","")};
+function ecoPrep(){const S=DATA.econ&&DATA.econ.series;if(!S)return;const o={};for(const k in S){const a=S[k];o[k]={f:a.f,u:a.u,src:a.src,t:a.d.map(r=>Date.parse(r[0]+"T00:00:00Z")/1000),v:a.d.map(r=>r[1])};}eco.d=o;}
+const ECO_PER={m:31,q:92,w:7};
+const ecoAvail=(s,t,lag)=>t+(ECO_PER[s.f]||31)*86400+(lag||0)*86400;
+function ecoAt(s,tSec){let j=-1;for(let i=0;i<s.t.length;i++){if(s.t[i]<=tSec)j=i;else break;}return j;}
+function ecoItem(it,now){const [id,label,w,dir,tgt,lag]=it,s=eco.d&&eco.d[id];const o={id,label,weight:w,dir,target:tgt};if(!s)return o;
+  let j=s.t.length-1;if(now!=null)while(j>=0&&ecoAvail(s,s.t[j],lag)>now)j--;if(j<0)return o;
+  o.value=s.v[j];o.period=dISO(s.t[j]);o.unit=s.u;o.src=s.src;o.freq=s.f;if(j>0)o.prev=s.v[j-1];
+  const back=d=>{const k=ecoAt(s,s.t[j]-d*86400);return k>=0&&k<j?s.v[k]:null;};const b3=back(88),b6=back(180);
+  if(b3!=null)o.ch3m=+(o.value-b3).toFixed(2);if(b6!=null)o.ch6m=+(o.value-b6).toFixed(2);
+  /* noise = median absolute one-step change over the whole history; a 3-month move under half of it counts as stable */
+  const dv=[];for(let i=1;i<=j;i++)dv.push(Math.abs(s.v[i]-s.v[i-1]));dv.sort((a,b)=>a-b);const nz=dv.length?dv[dv.length>>1]:0;
+  if(o.ch3m!=null){o.trend=Math.abs(o.ch3m)<Math.max(nz*0.5,1e-9)?0:Math.sign(o.ch3m);o.lean=dir?o.trend*dir:0;}
+  if(tgt!=null)o.vsTarget=+(o.value-tgt).toFixed(2);
+  const ago=(Date.now()/1000-ecoAvail(s,s.t[j],lag))/86400;o.stale=ago>({m:75,q:150,w:21}[s.f]||75);
+  o.spark=s.v.slice(Math.max(0,j-23),j+1);return o;}
+function ecoRead(e,now){const D=ECO_DRV[e];if(!D)return null;let sc=0,mx=0,up=0,dn=0;
+  const groups=D.g.map(([g,items])=>({group:g,items:items.map(it=>{const r=ecoItem(it,now);if(r.lean!=null&&r.dir){const w=ECO_W[r.weight];mx+=w;sc+=w*r.lean;if(r.lean>0)up++;else if(r.lean<0)dn++;}return r;})}));
+  const bias=mx?sc/mx:null;
+  return {economy:e,currency:D.cur,name:RT_NAME[e],about:D.about,groups,offline:D.offline,supportive:up,pressuring:dn,biasScore:bias==null?null:+bias.toFixed(2),
+    bias:bias==null?"لا بيانات":bias>=0.25?"البيانات تميل لدعم "+D.cur:bias<=-0.25?"البيانات تميل للضغط على "+D.cur:"البيانات متوازنة",evidence:"descriptive",built:DATA.econ&&DATA.econ.built};}
+function ecoList(){const p=(G.active?G.active.sym():"").split("/"),o=[];p.forEach(c=>{const e=RT_ECON[c];if(e&&!o.includes(e))o.push(e);});if(!o.length)o.push("US");if(eco.sel&&!o.includes(eco.sel))o.unshift(eco.sel);return o;}
+function ecoCtl(){return '<select id="ecoSel"><option value="">اقتصادا زوج الشارت</option>'+Object.entries(RT_ECON).map(([c,e])=>'<option value="'+e+'">'+c+' · '+RT_NAME[e]+'</option>').join("")+'</select>';}
+function ecoWire(c){const s=c.querySelector("#ecoSel");if(s){s.value=eco.sel;s.onchange=e=>{eco.sel=e.target.value;LS.set("ecoSel",eco.sel);csmPaint();};}}
+function ecoSpark(v){if(!v||v.length<2)return "";const mn=Math.min(...v),mx=Math.max(...v),r=mx-mn||1,W=56,H=14;
+  return '<svg width="'+W+'" height="'+H+'" style="vertical-align:middle"><polyline fill="none" stroke="#9aa4b2" stroke-width="1.2" points="'+v.map((x,i)=>(i*(W-2)/(v.length-1)+1).toFixed(1)+","+(H-1-(x-mn)/r*(H-2)).toFixed(1)).join(" ")+'"/></svg>';}
+function ecoFmt(v,u){if(v==null)return "—";const d=Math.abs(v)>=100?0:Math.abs(v)>=10?1:2;return (+v).toFixed(d)+(u==="%"?"%":u==="bp"?"bp":"");}
+function ecoPaint(info){const html=$("#csmHtml");
+  if(!eco.d){html.innerHTML="";info.innerHTML=DATA.src.econ==="none"?'<span class="mut">بيانات الاقتصاد متاحة على رابط المنصة فقط (https://akh70.github.io/trading-platform/)، لا في الملف المحلي.</span>':"جارٍ تجهيز بيانات الاقتصاد…";return;}
+  const now=ctxNow(),ar=l=>l>0?'<b class="pos">▲</b>':l<0?'<b class="neg">▼</b>':l===0?'<span class="mut">■</span>':'<span class="mut">—</span>';
+  html.innerHTML=ecoList().map(e=>{const R=ecoRead(e,now);
+    return '<div style="margin:2px 0 10px"><b style="font-size:13px">'+R.currency+' · '+R.name+'</b> <span class="'+(R.biasScore>=0.25?"pos":R.biasScore<=-0.25?"neg":"mut")+'">'+R.bias+'</span>'+(R.biasScore!=null?' <span class="mut">(داعمة '+R.supportive+'، ضاغطة '+R.pressuring+')</span>':'')+
+      '<div class="mut" style="margin:3px 0 4px;line-height:1.5">'+R.about+'</div>'+
+      (R.groups.length?'<table class="cmat mtf ctx eco"><tr><th>المحرك</th><th>الوزن</th><th>آخر</th><th>السابق</th><th>3 أشهر</th><th></th><th></th></tr>'+
+       R.groups.map(G2=>'<tr><td colspan="7" style="color:#e6e9ef;font-weight:600;background:#1a1e27">'+G2.group+'</td></tr>'+G2.items.map(r=>r.value==null?'<tr><th>'+r.label+'</th><td>'+ECO_WN[r.weight]+'</td><td colspan="5" class="mut">لم يُجلب بعد</td></tr>':
+         '<tr><th title="'+(r.src||"")+'">'+r.label+(r.stale?' <span class="neg" title="أقدم من المعتاد">●</span>':'')+'<br><span class="mut">'+r.period.slice(0,7)+(r.target!=null?' · الهدف '+ecoFmt(r.target,r.unit):'')+'</span></th><td>'+ECO_WN[r.weight]+'</td><td><b>'+ecoFmt(r.value,r.unit)+'</b></td><td>'+ecoFmt(r.prev,r.unit)+'</td><td>'+(r.ch3m!=null?cl(r.ch3m*(r.dir||0),sgnS(r.ch3m,Math.abs(r.ch3m)>=10?0:2)):'—')+'</td><td>'+ecoSpark(r.spark)+'</td><td>'+(r.dir?ar(r.lean):'<span class="mut" title="أثره على العملة في الاتجاهين">±</span>')+'</td></tr>').join("")).join("")+'</table>':'')+
+      '<div class="mut" style="margin-top:4px">تُجمع بالمتصفح وتدخل تحليلي: '+R.offline+'.</div></div>';}).join("");
+  info.innerHTML='<span class="mut">▲ المحرك يتحرك في اتجاه يدعم العملة خلال 3 أشهر (بنك مركزي أكثر تشدداً أو تجارة أقوى)، ▼ يضغط عليها، ■ مستقر، ± أثره في الاتجاهين. لون عمود "3 أشهر" يتبع أثره على العملة. "ميل البيانات" مجموع موزون وصفي، لم يُختبر كمؤشر تنبؤ ولا يدخل "السياق" بعد. آخر تحديث: '+(DATA.econ.built||"").slice(0,10)+(now!=null?' · Replay: القيم كما كانت معروفة وقتها تقريباً':'')+'.</span>';}
 
 /* ---------- context: everything for the active symbol in one place ---------- */
 function ctxBuild(){const sym=G.active.sym(),p=sym.split("/"),now=ctxNow(),F=[];const fx=p.length===2&&p.every(c=>CSM_CUR.includes(c));
@@ -1630,7 +1715,7 @@ function renderJournal(){
   const clr=j.querySelector("#jClr");clr.onclick=()=>{if(clr.dataset.arm){JOURNAL=[];LS.set("journal",JOURNAL);renderJournal();updPL();}else{clr.dataset.arm=1;clr.textContent="اضغط مرة أخرى للتأكيد";}};
 }/* ===================== control API (for Claude) ===================== */
 const API={
-  version:"3.0", strength:()=>csmSnapshot(), strengthMatrix:()=>csmMatrix(), cot:(k)=>cotRead(k||cot.mk,ctxNow()), cotAll:()=>cotAll(), liquidity:()=>liqRead(ctxNow()), yields:()=>yRead(ctxNow()), context:()=>ctxBuild(), rates:()=>rtsRead(ctxNow()), dataInfo:()=>({rates:DATA.src.rates,ratesBuilt:DATA.rates&&DATA.rates.built,stale:dataStale(),cot:DATA.src.cot,cotLast:cot.t&&dISO(cot.t[cot.t.length-1]),macro:DATA.src.mac,liqLast:mac.liq&&dISO(mac.liq.t[mac.liq.t.length-1]),yieldsLast:mac.y&&dISO(mac.y.t[mac.y.t.length-1])}), panel:(tab)=>{if(tab){csm.tab=tab;LS.set("csmTab",tab);csm.ctlKey="";}csmToggle(true);}, liveUpdate:()=>liveTick(), creditsToday:()=>creditsToday(),
+  version:"3.1", economy:(e)=>e?ecoRead(e,ctxNow()):ecoList().map(x=>ecoRead(x,ctxNow())), strength:()=>csmSnapshot(), strengthMatrix:()=>csmMatrix(), cot:(k)=>cotRead(k||cot.mk,ctxNow()), cotAll:()=>cotAll(), liquidity:()=>liqRead(ctxNow()), yields:()=>yRead(ctxNow()), context:()=>ctxBuild(), rates:()=>rtsRead(ctxNow()), dataInfo:()=>({econ:DATA.src.econ,econBuilt:DATA.econ&&DATA.econ.built,rates:DATA.src.rates,ratesBuilt:DATA.rates&&DATA.rates.built,stale:dataStale(),cot:DATA.src.cot,cotLast:cot.t&&dISO(cot.t[cot.t.length-1]),macro:DATA.src.mac,liqLast:mac.liq&&dISO(mac.liq.t[mac.liq.t.length-1]),yieldsLast:mac.y&&dISO(mac.y.t[mac.y.t.length-1])}), panel:(tab)=>{if(tab){csm.tab=tab;LS.set("csmTab",tab);csm.ctlKey="";}csmToggle(true);}, liveUpdate:()=>liveTick(), creditsToday:()=>creditsToday(),
   charts:()=>G.charts.map((c,i)=>Object.assign({index:i,active:c===G.active},c.cfg())),
   chart:i=>G.charts[i]?G.charts[i].api:null,
   activate:i=>{if(G.charts[i])G.setActive(G.charts[i]);},
