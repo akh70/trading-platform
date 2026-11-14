@@ -1463,7 +1463,7 @@ function ecoItem(it,now){const [id,label,w,dir,tgt,lag]=it,s=eco.d&&eco.d[id];co
   const ago=(Date.now()/1000-ecoAvail(s,s.t[j],lag))/86400;o.stale=ago>({m:75,q:150,w:21}[s.f]||75);
   o.spark=s.v.slice(Math.max(0,j-23),j+1);return o;}
 function ecoRead(e,now){const D=ECO_DRV[e];if(!D)return null;let sc=0,mx=0,up=0,dn=0;
-  const groups=D.g.map(([g,items])=>({group:g,items:items.map(it=>{const r=ecoItem(it,now);if(r.lean!=null&&r.dir){const w=ECO_W[r.weight];mx+=w;sc+=w*r.lean;if(r.lean>0)up++;else if(r.lean<0)dn++;}return r;})}));
+  const groups=D.g.map(([g,items])=>({group:g,items:items.map(it=>{const r=ecoItem(it,now);if(r.lean!=null&&r.dir&&!r.stale){const w=ECO_W[r.weight];mx+=w;sc+=w*r.lean;if(r.lean>0)up++;else if(r.lean<0)dn++;}return r;})}));
   const bias=mx?sc/mx:null;
   return {economy:e,currency:D.cur,name:RT_NAME[e],about:D.about,groups,offline:D.offline,supportive:up,pressuring:dn,biasScore:bias==null?null:+bias.toFixed(2),
     bias:bias==null?"لا بيانات":bias>=0.25?"البيانات تميل لدعم "+D.cur:bias<=-0.25?"البيانات تميل للضغط على "+D.cur:"البيانات متوازنة",evidence:"descriptive",built:DATA.econ&&DATA.econ.built};}
@@ -1483,7 +1483,7 @@ function ecoPaint(info){const html=$("#csmHtml");
        R.groups.map(G2=>'<tr><td colspan="7" style="color:#e6e9ef;font-weight:600;background:#1a1e27">'+G2.group+'</td></tr>'+G2.items.map(r=>r.value==null?'<tr><th>'+r.label+'</th><td>'+ECO_WN[r.weight]+'</td><td colspan="5" class="mut">لم يُجلب بعد</td></tr>':
          '<tr><th title="'+(r.src||"")+'">'+r.label+(r.stale?' <span class="neg" title="أقدم من المعتاد">●</span>':'')+'<br><span class="mut">'+r.period.slice(0,7)+(r.target!=null?' · الهدف '+ecoFmt(r.target,r.unit):'')+'</span></th><td>'+ECO_WN[r.weight]+'</td><td><b>'+ecoFmt(r.value,r.unit)+'</b></td><td>'+ecoFmt(r.prev,r.unit)+'</td><td>'+(r.ch3m!=null?cl(r.ch3m*(r.dir||0),sgnS(r.ch3m,Math.abs(r.ch3m)>=10?0:2)):'—')+'</td><td>'+ecoSpark(r.spark)+'</td><td>'+(r.dir?ar(r.lean):'<span class="mut" title="أثره على العملة في الاتجاهين">±</span>')+'</td></tr>').join("")).join("")+'</table>':'')+
       '<div class="mut" style="margin-top:4px">تُجمع بالمتصفح وتدخل تحليلي: '+R.offline+'.</div></div>';}).join("");
-  info.innerHTML='<span class="mut">▲ المحرك يتحرك في اتجاه يدعم العملة خلال 3 أشهر (بنك مركزي أكثر تشدداً أو تجارة أقوى)، ▼ يضغط عليها، ■ مستقر، ± أثره في الاتجاهين. لون عمود "3 أشهر" يتبع أثره على العملة. "ميل البيانات" مجموع موزون وصفي، لم يُختبر كمؤشر تنبؤ ولا يدخل "السياق" بعد. آخر تحديث: '+(DATA.econ.built||"").slice(0,10)+(now!=null?' · Replay: القيم كما كانت معروفة وقتها تقريباً':'')+'.</span>';}
+  info.innerHTML='<span class="mut">▲ المحرك يتحرك في اتجاه يدعم العملة خلال 3 أشهر (بنك مركزي أكثر تشدداً أو تجارة أقوى)، ▼ يضغط عليها، ■ مستقر، ± أثره في الاتجاهين. لون عمود "3 أشهر" يتبع أثره على العملة. ● قراءة أقدم من المعتاد ولا تدخل في الميل. "ميل البيانات" مجموع موزون وصفي، لم يُختبر كمؤشر تنبؤ ولا يدخل "السياق" بعد. آخر تحديث: '+(DATA.econ.built||"").slice(0,10)+(now!=null?' · Replay: القيم كما كانت معروفة وقتها تقريباً':'')+'.</span>';}
 
 /* ---------- context: everything for the active symbol in one place ---------- */
 function ctxBuild(){const sym=G.active.sym(),p=sym.split("/"),now=ctxNow(),F=[];const fx=p.length===2&&p.every(c=>CSM_CUR.includes(c));
