@@ -190,7 +190,7 @@ def update_cot(today):
 def update_macro():
     old = json.load(open(MAC_F))
     new = {}
-    for sid in ("WALCL", "WTREGEN", "RRPONTSYD", "DGS2", "DGS10"):
+    for sid in ("WALCL", "WTREGEN", "RRPONTSYD", "DGS2", "DGS10", "DFEDTARU", "IRSTCI01JPM156N"):
         st, txt = get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={sid}&cosd=2020-09-01")
         rows = []
         for line in txt.strip().splitlines()[1:]:

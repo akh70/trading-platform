@@ -48,6 +48,12 @@ def fred(sid):
     return keep((l.split(",")[0], fnum(l.split(",")[1])) for l in t.strip().splitlines()[1:] if "," in l)
 
 
+def macro(sid):
+    """FRED series already downloaded by update_data.update_macro (avoids a second burst of FRED requests)."""
+    m = json.load(open(os.path.join(ROOT, "data", "macro-data.json")))["series"]
+    return keep((d, round(float(v), 4)) for d, v in m[sid])
+
+
 def ecb(key):
     t = text(f"https://data-api.ecb.europa.eu/service/data/{key}?format=csvdata&startPeriod={START}&detail=dataonly")
     rd = csv.DictReader(io.StringIO(t))
@@ -67,8 +73,8 @@ def boe_iadb(code):
     return keep(rows)
 
 
-def xlsx_rows(blob, sheet_hint):
-    """Rows (list of cell strings) of the first sheet whose name contains sheet_hint."""
+def xlsx_rows(blob, *hints):
+    """Rows (dict column -> cell string) of the first sheet whose name contains every hint."""
     z = zipfile.ZipFile(io.BytesIO(blob))
     wb = ET.fromstring(z.read("xl/workbook.xml"))
     names = [s.get("name") for s in wb.find("m:sheets", NS)]
@@ -77,11 +83,11 @@ def xlsx_rows(blob, sheet_hint):
     sheets = wb.find("m:sheets", NS)
     tgt = None
     for s in sheets:
-        if sheet_hint in s.get("name").lower():
+        if all(h in s.get("name").lower() for h in hints):
             tgt = rid[s.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")]
             break
     if not tgt:
-        raise ValueError(f"no sheet like {sheet_hint}: {names}")
+        raise ValueError(f"no sheet with {hints}: {names}")
     tgt = tgt.lstrip("/")
     tgt = tgt if tgt.startswith("xl/") else "xl/" + tgt
     ss = []
@@ -100,9 +106,19 @@ def xlsx_rows(blob, sheet_hint):
 
 def boe_glc_2y(blob):
     """UK nominal spot 2-year (24 months) from a Bank of England GLC workbook."""
-    rows = xlsx_rows(blob, "short end")
-    head = next(r for r in rows if r.get("A", "").strip().lower().startswith("months"))
-    col = next(k for k, v in head.items() if v.strip() in ("24", "24.0"))
+    rows = xlsx_rows(blob, "spot", "short")
+    head = next((r for r in rows if r.get("A", "").strip().lower().startswith("months")), None)
+    if head is None:
+        raise ValueError("no 'months' header row")
+    col = None
+    for k, v in head.items():
+        try:
+            if abs(float(v) - 24) < 1e-9:
+                col = k
+        except ValueError:
+            pass
+    if col is None:
+        raise ValueError(f"no 24-month column; header: {list(head.values())[:12]}")
     res = []
     for r in rows:
         a, v = r.get("A", ""), r.get(col, "")
@@ -189,11 +205,11 @@ def main():
     old = json.load(open(OUT)) if os.path.exists(OUT) else {"series": {}}
     S = old.get("series", {})
     jobs = {
-        ("US", "pol"): lambda: fred("DFEDTARU"), ("US", "y2"): lambda: fred("DGS2"),
+        ("US", "pol"): lambda: macro("DFEDTARU"), ("US", "y2"): lambda: macro("DGS2"),
         ("EU", "pol"): lambda: ecb("FM/D.U2.EUR.4F.KR.DFR.LEV"), ("EU", "y2"): lambda: ecb("YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_2Y"),
         ("UK", "pol"): lambda: boe_iadb("IUDBEDR"), ("UK", "y2"): lambda: uk_2y(S.get("UK", {}).get("y2")),
         ("AU", "pol"): lambda: rba("f1.1", "Cash Rate Target", "%d/%m/%Y"), ("AU", "y2"): lambda: rba("f2", "Australian Government 2 year bond", "%d-%b-%Y"),
-        ("JP", "pol"): lambda: fred("IRSTCI01JPM156N"), ("JP", "y2"): mof_2y,
+        ("JP", "pol"): lambda: macro("IRSTCI01JPM156N"), ("JP", "y2"): mof_2y,
         ("CH", "pol"): snb_policy,
     }
     ca = None
